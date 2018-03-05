@@ -8,13 +8,21 @@ App = {
       var petsRow = $('#petsRow');
       var petTemplate = $('#petTemplate');
 
-      for (i = 0; i < data.length; i ++) {
+      for (let i = 0; i < data.length; i ++) {
         petTemplate.find('.panel-title').text(data[i].name);
         petTemplate.find('img').attr('src', data[i].picture);
         petTemplate.find('.pet-breed').text(data[i].breed);
         petTemplate.find('.pet-age').text(data[i].age);
         petTemplate.find('.pet-location').text(data[i].location);
         petTemplate.find('.btn-adopt').attr('data-id', data[i].id);
+
+        if (data[i].owner !== '0x0000000000000000000000000000000000000000') {
+          petTemplate.find('.btn-adopt').attr('disabled', true);
+          petTemplate.find('.pet-status').text('Adopted!');
+        } else {
+          petTemplate.find('.btn-adopt').attr('disabled', false);
+          petTemplate.find('.pet-status').text('Available');
+        }
 
         petsRow.append(petTemplate.html());
       }
@@ -44,33 +52,6 @@ App = {
 
       // Set the provider for our contract
       App.contracts.Adoption.setProvider(App.web3Provider);
-
-      // Use our contract to retrieve and mark the adopted pets
-      return App.markAdopted();
-    });
-    
-    return App.bindEvents();
-  },
-
-  bindEvents: function() {
-    $(document).on('click', '.btn-adopt', App.handleAdopt);
-  },
-
-  markAdopted: function(adopters, account) {
-    var adoptionInstance;
-
-    App.contracts.Adoption.deployed().then(function(instance) {
-      adoptionInstance = instance;
-
-      return adoptionInstance.getAdopters.call();
-    }).then(function(adopters) {
-      for (i = 0; i < adopters.length; i++) {
-        if (adopters[i] !== '0x0000000000000000000000000000000000000000') {
-          $('.panel-pet').eq(i).find('button').text('Success').attr('disabled', true);
-        }
-      }
-    }).catch(function(err) {
-      console.log(err.message);
     });
   },
 
@@ -80,7 +61,7 @@ App = {
     var petId = $(event.target).data('id');
 
     console.log(petId)
-    
+
     var adoptionInstance;
 
     web3.eth.getAccounts(function(error, accounts) {
@@ -96,7 +77,7 @@ App = {
         // Execute adopt as a transaction by sending account
         return adoptionInstance.adopt(petId, {from: account});
       }).then(function(result) {
-        return App.markAdopted();
+        console.log("Finished Adopting");
       }).catch(function(err) {
         console.log(err.message);
       });
