@@ -4,7 +4,7 @@ App = {
 
   init: function() {
     // Load pets.
-    $.getJSON('../pets.json', function(data) {
+    $.get( "http://localhost:4000/", function( data ) {
       var petsRow = $('#petsRow');
       var petTemplate = $('#petTemplate');
 
@@ -77,8 +77,10 @@ App = {
   handleAdopt: function(event) {
     event.preventDefault();
 
-    var petId = parseInt($(event.target).data('id'));
+    var petId = $(event.target).data('id');
 
+    console.log(petId)
+    
     var adoptionInstance;
 
     web3.eth.getAccounts(function(error, accounts) {
