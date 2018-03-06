@@ -16,7 +16,7 @@ App = {
         petTemplate.find('.pet-location').text(data[i].location);
         petTemplate.find('.btn-adopt').attr('data-id', data[i].id);
 
-        if (data[i].owner !== '0x0000000000000000000000000000000000000000') {
+        if (data[i].ownerAddress !== '0x0000000000000000000000000000000000000000') {
           petTemplate.find('.btn-adopt').attr('disabled', true);
           petTemplate.find('.pet-status').text('Adopted!');
         } else {
@@ -53,6 +53,13 @@ App = {
       // Set the provider for our contract
       App.contracts.Adoption.setProvider(App.web3Provider);
     });
+
+    return App.bindEvents();
+
+  },
+
+  bindEvents: function() {
+    $(document).on('click', '.btn-adopt', App.handleAdopt);
   },
 
   handleAdopt: function(event) {
