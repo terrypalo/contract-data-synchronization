@@ -5,18 +5,18 @@
  * by using web3 to look at past completed block events
 */
 
-var Web3 = require('web3');
-var AWS = require('aws-sdk');
-var fs = require('fs')
+const Web3 = require('web3');
+const AWS = require('aws-sdk');
+const fs = require('fs')
 
 // Set up Web3 and contract connection
-var web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:7545/'));
-var abi = [{"constant":true,"inputs":[],"name":"getAdopters","outputs":[{"name":"","type":"address[16]"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"","type":"uint256"}],"name":"adopters","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"petId","type":"uint256"}],"name":"adopt","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"petId","type":"uint256"},{"indexed":false,"name":"owner","type":"address"}],"name":"Adopted","type":"event"}]
-var contract = new web3.eth.Contract(abi, '0x345ca3e014aaf5dca488057592ee47305d9b3e10');
+const web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:7545/'));
+const abi = [{"constant":true,"inputs":[],"name":"getAdopters","outputs":[{"name":"","type":"address[16]"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"","type":"uint256"}],"name":"adopters","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"petId","type":"uint256"}],"name":"adopt","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"petId","type":"uint256"},{"indexed":false,"name":"owner","type":"address"}],"name":"Adopted","type":"event"}]
+const contract = new web3.eth.Contract(abi, '0x345ca3e014aaf5dca488057592ee47305d9b3e10');
 
 // Set up AWS DDB 
 AWS.config.update({region: 'us-west-2'});
-var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2018-02-08'});
+const docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2018-02-08'});
 
 let lastBlockNumber = parseInt(fs.readFileSync('LastBlock.txt', 'utf8'));;
 
@@ -36,17 +36,38 @@ async function startWatching() {
 }
 
 /**
+ * watchEvents() Provides top level logic to decide whether or 
+ * not to update lastBlockNumber depending on the currentBlockNumber
+ */
+async function watchEvents() {
+	let currBlockNumber = await getCurrBlockNumber();
+	let latestCompleteBlock = currBlockNumber - 1;
+
+	if (lastBlockNumber < latestCompleteBlock) {
+		console.log("Getting events from: " + lastBlockNumber + " to " + latestCompleteBlock);
+
+		let events = await checkBetweenBlocks(lastBlockNumber, latestCompleteBlock);
+		lastBlockNumber = currBlockNumber;
+		updateDDBFromEvents(events);
+
+	} else {
+		console.log("No new blocks.")
+	}
+}
+
+/**
  * updateDDBFromEvents() wil update DDB given event objects
  *
  * @param events {Array of Objects} Events to sync ddb with
  */
-async function updateDDBFromEvents(events) {
+function updateDDBFromEvents(events) {
 	let counter = 0;
+	let petShopTable = 'pet-shop'
+
 	for (let i=0; i<events.length; i++) {
 		let eventObj = events[i];
 
-		var petShopTable = 'pet-shop'
-		var params = {
+		let params = {
 		  TableName: petShopTable,
 		  Key: {
 		    'id': parseInt(eventObj.returnValues.petId),
@@ -55,10 +76,9 @@ async function updateDDBFromEvents(events) {
 		  ExpressionAttributeValues: {
 		    ':o' : eventObj.returnValues.owner.toString()
 		  }
-
 		};
 
-		await docClient.update(params, function(err, data) {
+		docClient.update(params, function(err, data) {
 		  if (err) {
 		    console.log("Error", err);
 		  }
@@ -67,7 +87,7 @@ async function updateDDBFromEvents(events) {
 		counter++;
 	}
 
-	console.log("Made " + counter + " updates");
+	console.log("Made " + counter + " update(s) from " + events.length + " event(s)");
 }
 
 /**
@@ -76,8 +96,8 @@ async function updateDDBFromEvents(events) {
  *
  * @return {Int} Current Ethereum block number
  */
-async function getCurrBlockNumber() {
-	let currBlockNumber = await web3.eth.getBlockNumber(function(error, result) {
+function getCurrBlockNumber() {
+	let currBlockNumber = web3.eth.getBlockNumber(function(error, result) {
 		return result;
 	});
 
@@ -92,12 +112,12 @@ async function getCurrBlockNumber() {
  * @param toBlock {Int} End block 
  * @return {Array of Objects} All found events 
  */
-async function checkBetweenBlocks(fromBlock, toBlock) {
+function checkBetweenBlocks(fromBlock, toBlock) {
 	fs.writeFile('LastBlock.txt', fromBlock, (err) => {
 	  if (err) throw err;
 	});
 
-	let events = await contract.getPastEvents('Adopted', {
+	let events = contract.getPastEvents('Adopted', {
 			fromBlock: fromBlock,
 			toBlock: toBlock
 			}, function (error, events) {
@@ -108,26 +128,6 @@ async function checkBetweenBlocks(fromBlock, toBlock) {
 	return events;
 }
 	
-/**
- * watchEvents() Provides top level logic to decide whether or 
- * not to update lastBlockNumber depending on the currentBlockNumber
- */
-async function watchEvents() {
-	let currBlockNumber = await getCurrBlockNumber();
-	let latestCompleteBlock = currBlockNumber - 1;
-
-	if (lastBlockNumber < latestCompleteBlock) {
-		console.log("Getting events from: " + lastBlockNumber + " to " + latestCompleteBlock);
-
-		let events = await checkBetweenBlocks(lastBlockNumber, latestCompleteBlock);
-		lastBlockNumber = currBlockNumber;
-		await updateDDBFromEvents(events);
-
-	} else {
-		console.log("No new blocks.")
-	}
-}
-
 /**
  * wait() will consecutively wait corresponding time given
  * rather than putting the code to sleep
