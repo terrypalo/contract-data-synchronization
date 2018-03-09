@@ -1,14 +1,14 @@
-var express = require('express')
-var app = express()
+const express = require('express')
+const app = express()
 
 // Set up AWS DDB connection
-var AWS = require('aws-sdk');
+const AWS = require('aws-sdk');
 AWS.config.update({region: 'us-west-2'});
-var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2018-02-08'});
+const docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2018-02-08'});
 
-var petShopTable = 'pet-shop'
+const petShopTable = 'pet-shop'
 
-var params = {
+const params = {
   TableName: petShopTable,
 };
 
