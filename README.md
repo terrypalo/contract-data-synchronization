@@ -1,4 +1,4 @@
-# contract-data-synchronization
+# Contract Data Synchronization
 Example on how to synchronize Ethereum Contract Events on DynamoDB 
 
 ## Installation
